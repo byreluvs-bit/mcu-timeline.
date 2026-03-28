@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCU Timeline Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        /* CSS VARIABLES & RESET */
+        :root {
+            --marvel-red: #e62429;
+            --marvel-dark: #141414;
+            --text-light: #f5f5f5;
+            --glass-bg: rgba(20, 20, 20, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background-color: var(--marvel-dark); color: var(--text-light); overflow-x: hidden; scroll-behavior: smooth; }
+
+        /* CINEMATIC INTRO */
+        #intro-screen {
+            position: fixed; inset: 0; background: black; z-index: 9999;
+            display: flex; justify-content: center; align-items: center;
+            animation: fadeOutIntro 3.5s forwards; pointer-events: none;
+        }
+        #intro-screen h1 {
+            font-size: 4rem; text-transform: uppercase; letter-spacing: 10px;
+            color: transparent; -webkit-text-stroke: 2px var(--marvel-red);
+            text-shadow: 0 0 20px rgba(230, 36, 41, 0.8); animation: glowUp 2s ease-in-out infinite alternate;
+        }
+        @keyframes fadeOutIntro { 0%, 80% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+        @keyframes glowUp { from { text-shadow: 0 0 10px var(--marvel-red); } to { text-shadow: 0 0 30px var(--marvel-red), 0 0 50px var(--marvel-red); } }
+
+        /* NAVBAR */
+        nav {
+            position: fixed; top: 0; width: 100%; padding: 20px 50px;
+            background: rgba(20, 20, 20, 0.8); backdrop-filter: blur(10px);
+            display: flex; justify-content: space-between; align-items: center; z-index: 1000;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        nav h2 { color: var(--marvel-red); font-weight: 800; letter-spacing: 2px; }
+        nav ul { display: flex; gap: 20px; list-style: none; }
+        nav a { color: white; text-decoration: none; font-weight: 600; transition: color 0.3s; }
+        nav a:hover { color: var(--marvel-red); }
+
+        /* HERO SECTION */
+        header {
+            height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            text-align: center; background: radial-gradient(circle, rgba(230,36,41,0.2) 0%, rgba(20,20,20,1) 80%);
+            padding: 20px;
+        }
+        header h1 { font-size: 5rem; text-transform: uppercase; font-weight: 800; margin-bottom: 10px; }
+        header p { font-size: 1.2rem; max-width: 600px; margin-bottom: 30px; opacity: 0.8; }
+        .btn {
+            background: var(--marvel-red); color: white; border: none; padding: 15px 30px;
+            font-size: 1.2rem; font-weight: 600; cursor: pointer; border-radius: 5px;
+            transition: transform 0.2s, box-shadow 0.2s; text-transform: uppercase;
+        }
+        .btn:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(230, 36, 41, 0.6); }
+
+        /* PROGRESS DASHBOARD */
+        .dashboard { max-width: 1200px; margin: -50px auto 50px; padding: 30px; background: var(--glass-bg); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); border-radius: 15px; text-align: center; position: relative; z-index: 10; }
+        .progress-bar-container { width: 100%; height: 20px; background: rgba(255,255,255,0.1); border-radius: 10px; overflow: hidden; margin: 15px 0; }
+        .progress-bar { height: 100%; background: var(--marvel-red); width: 0%; transition: width 0.5s ease; }
+
+        /* SECTIONS & GRIDS */
+        section { padding: 60px 20px; max-width: 1200px; margin: auto; }
+        h2.section-title { font-size: 2.5rem; margin-bottom: 30px; border-left: 5px solid var(--marvel-red); padding-left: 15px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 30px; }
+
+        /* MOVIE CARDS */
+        .card {
+            background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+            border-radius: 10px; overflow: hidden; transition: transform 0.3s, box-shadow 0.3s;
+            display: flex; flex-direction: column; position: relative; cursor: pointer;
+        }
+        .card:hover { transform: translateY(-10px); box-shadow: 0 15px 30px rgba(230, 36, 41, 0.3); }
+        .card img { width: 100%; height: 350px; object-fit: cover; }
+        .card-info { padding: 20px; flex-grow: 1; display: flex; flex-direction: column; justify-content: space-between; }
+        .card-info h3 { font-size: 1.2rem; margin-bottom: 5px; }
+        .card-info p { font-size: 0.9rem; opacity: 0.7; margin-bottom: 15px; }
+        .btn-survived { width: 100%; padding: 10px; border: 1px solid var(--marvel-red); background: transparent; color: white; border-radius: 5px; cursor: pointer; transition: 0.3s; }
+        .btn-survived.watched { background: var(--marvel-red); font-weight: bold; }
+        .btn-survived:hover { background: var(--marvel-red); }
+
+        /* MODAL (WATCH MODE) */
+        #watch-modal {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); backdrop-filter: blur(20px);
+            z-index: 2000; display: none; justify-content: center; align-items: center; padding: 20px;
+        }
+        .modal-content {
+            background: var(--marvel-dark); border: 1px solid var(--glass-border); border-radius: 15px;
+            max-width: 900px; width: 100%; display: flex; gap: 30px; padding: 30px; position: relative;
+        }
+        .close-modal { position: absolute; top: 15px; right: 20px; font-size: 2rem; cursor: pointer; color: white; }
+        .modal-img { width: 300px; border-radius: 10px; object-fit: cover; }
+        .modal-details { flex-grow: 1; }
+        .modal-details h2 { font-size: 2.5rem; color: var(--marvel-red); margin-bottom: 10px; }
+        .spoiler-box { background: rgba(255,0,0,0.1); padding: 15px; border-left: 3px solid var(--marvel-red); margin: 15px 0; cursor: pointer; }
+        .spoiler-content { display: none; margin-top: 10px; opacity: 0.8; }
+        textarea { width: 100%; height: 100px; background: rgba(255,255,255,0.05); color: white; border: 1px solid var(--glass-border); padding: 10px; border-radius: 5px; margin-top: 15px; resize: none; }
+
+        /* EXTRAS: CALCULATOR */
+        .calculator-box { background: var(--glass-bg); padding: 30px; border-radius: 15px; border: 1px solid var(--glass-border); text-align: center; }
+        .calculator-box input { padding: 10px; font-size: 1.2rem; width: 100px; text-align: center; background: rgba(255,255,255,0.1); color: white; border: 1px solid var(--marvel-red); border-radius: 5px; margin: 10px; }
+
+        /* FOOTER */
+        footer { text-align: center; padding: 40px; background: #0a0a0a; border-top: 1px solid #222; margin-top: 50px; }
+        footer p { opacity: 0.6; font-size: 0.9rem; }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            header h1 { font-size: 3rem; }
+            .modal-content { flex-direction: column; overflow-y: auto; max-height: 90vh; }
+            .modal-img { width: 100%; height: 300px; }
+            nav ul { display: none; /* simple mobile fix */ } 
+        }
+    </style>
+</head>
+<body>
+
+    <div id="intro-screen">
+        <h1>Marvel Studios</h1>
+    </div>
+
+    <nav>
+        <h2>MCU Tracker</h2>
+        <ul>
+            <li><a href="#home">Home</a></li>
+            <li><a href="#timeline">Timeline</a></li>
+            <li><a href="#characters">Characters</a></li>
+            <li><a href="#extras">Extras</a></li>
+        </ul>
+    </nav>
+
+    <header id="home">
+        <h1>MCU Timeline</h1>
+        <p>Watch every Marvel movie in chronological order. Track your progress. Survive the emotional damage.</p>
+        <button class="btn" onclick="document.getElementById('timeline').scrollIntoView();">Start Watching</button>
+    </header>
+
+    <div class="dashboard">
+        <h2>Your Journey</h2>
+        <p id="progress-text">You've watched 0 / 0 movies</p>
+        <div class="progress-bar-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <p id="next-movie-suggestion" style="color: var(--marvel-red); font-weight: 600; margin-top: 10px;"></p>
+    </div>
+
+    <section id="timeline">
+        <h2 class="section-title">The Chronological Timeline</h2>
+        <div class="grid" id="movie-grid">
+            </div>
+    </section>
+
+    <section id="characters">
+        <h2 class="section-title">Key Figures</h2>
+        <div class="grid" id="character-grid">
+            </div>
+    </section>
+
+    <section id="extras">
+        <h2 class="section-title">Survival Tools</h2>
+        <div class="calculator-box">
+            <h3>How long to finish the MCU?</h3>
+            <p>Enter how many movies you plan to watch per day:</p>
+            <input type="number" id="movies-per-day" value="1" min="1" max="10">
+            <p id="calc-result" style="font-size: 1.5rem; font-weight: bold; color: var(--marvel-red); margin-top: 15px;">It will take you X days.</p>
+        </div>
+    </section>
+
+    <footer>
+        <p>Made by Clint RVM 💅 | Marvel Cinematic Universe Fan Project</p>
+    </footer>
+
+    <div id="watch-modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <img id="modal-img" class="modal-img" src="" alt="Poster">
+            <div class="modal-details">
+                <h2 id="modal-title">Movie Title</h2>
+                <p style="opacity: 0.7; margin-bottom: 15px;" id="modal-year-phase">Year • Phase</p>
+                <p id="modal-desc">Description goes here...</p>
+                
+                <div class="spoiler-box" onclick="toggleSpoiler()">
+                    <strong>⚠️ Post-Credit Scene Guide (Click to reveal)</strong>
+                    <div class="spoiler-content" id="modal-credits">Wait for mid-credits!</div>
+                </div>
+                
+                <h4 style="margin-top: 20px;">Your Notes / Reactions</h4>
+                <textarea id="modal-notes" placeholder="e.g. I can't believe they did that to Tony..."></textarea>
+                <button class="btn" style="width: 100%; margin-top: 15px;" id="modal-save-btn">Save Notes & Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATABASE ---
+        // I've added a solid starting list. You can easily copy/paste these objects to add all 40+ projects!
+        const movies = [
+            { id: 1, title: "Captain America: The First Avenger", year: "1940s", phase: "Phase 1", img: "https://m.media-amazon.com/images/M/MV5BMTYzOTc2OTA5N15BMl5BanBnXkFtZTcwMTg4NjM3Nw@@._V1_.jpg", desc: "Steve Rogers becomes America's first super soldier.", credits: "1 scene (Teases The Avengers)" },
+            { id: 2, title: "Captain Marvel", year: "1995", phase: "Phase 3", img: "https://m.media-amazon.com/images/M/MV5BMTE0YWFmOTMtYTU2ZS00ZTIxLWE3OTEtYTNiYzBkZjViZThiXkEyXkFqcGdeQXVyNDMDNDEzNjA@._V1_.jpg", desc: "Carol Danvers becomes one of the universe's most powerful heroes.", credits: "2 scenes (Connects to Endgame)" },
+            { id: 3, title: "Iron Man", year: "2010", phase: "Phase 1", img: "https://m.media-amazon.com/images/M/MV5BMTczNTI2ODUwOF5BMl5BanBnXkFtZTcwMTU0NTIzMw@@._V1_.jpg", desc: "Billionaire Tony Stark builds an armored suit.", credits: "1 scene (The Nick Fury initiative!)" },
+            { id: 4, title: "The Avengers", year: "2012", phase: "Phase 1", img: "https://m.media-amazon.com/images/M/MV5BNDYxNjQyNDg3MV5BMl5BanBnXkFtZTcwMzgwMTk2Mw@@._V1_.jpg", desc: "Earth's mightiest heroes must come together.", credits: "2 scenes (Thanos revealed!)" },
+            { id: 5, title: "Avengers: Infinity War", year: "2018", phase: "Phase 3", img: "https://m.media-amazon.com/images/M/MV5BMjMxNjY2MDU1OV5BMl5BanBnXkFtZTgwNzY1MTUwNTM@._V1_.jpg", desc: "The Avengers race to stop Thanos from collecting the stones.", credits: "1 scene (Calling Captain Marvel)" },
+            { id: 6, title: "Avengers: Endgame", year: "2023", phase: "Phase 3", img: "https://m.media-amazon.com/images/M/MV5BMTc5MDE2ODcwNV5BMl5BanBnXkFtZTgwMzI2NzQ2NzM@._V1_.jpg", desc: "Whatever it takes.", credits: "No scenes. Just the sound of a hammer." },
+            { id: 7, title: "Spider-Man: No Way Home", year: "2024", phase: "Phase 4", img: "https://m.media-amazon.com/images/M/MV5BZWMyYzFjYTYtNTRjYi00OGExLWE2YzgtOGRmYjAxZTU3NzBiXkEyXkFqcGdeQXVyMzQ0MzA0NTM@._V1_.jpg", desc: "The multiverse breaks open.", credits: "2 scenes (Venom & Doctor Strange 2 trailer)" },
+            { id: 8, title: "Deadpool & Wolverine", year: "2024", phase: "Phase 5", img: "https://m.media-amazon.com/images/M/MV5BZTU5YjExNjEtZDI4MS00MTY1LTkxMGYtMzI1NzliNzhjOWUyXkEyXkFqcGdeQXVyMTkxNjUyNQ@@._V1_.jpg", desc: "The crossover we've been waiting for.", credits: "Stay until the very end for a laugh." },
+            { id: 9, title: "The Fantastic Four: First Steps", year: "2025", phase: "Phase 6", img: "https://m.media-amazon.com/images/M/MV5BNDEwNDRhYmUtZjk0OC00NDU4LWE3ZWMtNWNhOWE0MzFhZjkyXkEyXkFqcGdeQXVyMTk2OTAzNTI@._V1_.jpg", desc: "Marvel's First Family officially arrives.", credits: "TBD" }
+        ];
+
+        const characters = [
+            { name: "Tony Stark", role: "Hero", desc: "Genius, billionaire, playboy, philanthropist.", img: "https://i.pinimg.com/736x/d6/72/f0/d672f0fb2c7a52cd1d62e73ce64de2c7.jpg" },
+            { name: "Wanda Maximoff", role: "Anti-Hero", desc: "The Scarlet Witch. Deals with grief through reality warping.", img: "https://i.pinimg.com/736x/2a/b8/9f/2ab89fb0bf6dfb37c0f1e8e2c3498877.jpg" },
+            { name: "Thanos", role: "Villain", desc: "Inevitable. Loves balancing things.", img: "https://i.pinimg.com/736x/1d/15/8e/1d158e23bb462fa1198f1a2384a8ddbc.jpg" }
+        ];
+
+        // --- STATE & LOCAL STORAGE ---
+        let watchedMovies = JSON.parse(localStorage.getItem('mcu_watched')) || [];
+
+        // --- RENDER MOVIES ---
+        const movieGrid = document.getElementById('movie-grid');
+        function renderMovies() {
+            movieGrid.innerHTML = "";
+            movies.forEach(movie => {
+                const isWatched = watchedMovies.includes(movie.id);
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <img src="${movie.img}" alt="${movie.title}" onclick="openModal(${movie.id})">
+                    <div class="card-info">
+                        <div>
+                            <h3>${movie.title}</h3>
+                            <p>${movie.year} | ${movie.phase}</p>
+                        </div>
+                        <button class="btn-survived ${isWatched ? 'watched' : ''}" onclick="toggleWatch(event, ${movie.id})">
+                            ${isWatched ? '✅ Survived It' : 'Yep, I survived this 😭'}
+                        </button>
+                    </div>
+                `;
+                movieGrid.appendChild(card);
+            });
+            updateDashboard();
+        }
+
+        // --- RENDER CHARACTERS ---
+        const charGrid = document.getElementById('character-grid');
+        characters.forEach(char => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <img src="${char.img}" alt="${char.name}" style="height: 250px;">
+                <div class="card-info">
+                    <h3>${char.name}</h3>
+                    <p style="color:var(--marvel-red); font-weight:bold;">${char.role}</p>
+                    <p>${char.desc}</p>
+                </div>
+            `;
+            charGrid.appendChild(card);
+        });
+
+        // --- PROGRESS SYSTEM ---
+        function toggleWatch(event, id) {
+            event.stopPropagation(); // Prevents opening modal when clicking button
+            if (watchedMovies.includes(id)) {
+                watchedMovies = watchedMovies.filter(movieId => movieId !== id);
+            } else {
+                watchedMovies.push(id);
+            }
+            localStorage.setItem('mcu_watched', JSON.stringify(watchedMovies));
+            renderMovies(); // Re-render to update UI
+        }
+
+        function updateDashboard() {
+            const total = movies.length;
+            const watched = watchedMovies.length;
+            const percentage = total === 0 ? 0 : (watched / total) * 100;
+            
+            document.getElementById('progress-text').innerText = `You've watched ${watched} / ${total} movies`;
+            document.getElementById('progress-bar').style.width = `${percentage}%`;
+
+            // Next movie suggestion
+            const nextMovie = movies.find(m => !watchedMovies.includes(m.id));
+            if (nextMovie) {
+                document.getElementById('next-movie-suggestion').innerText = `Up Next: ${nextMovie.title}`;
+            } else {
+                document.getElementById('next-movie-suggestion').innerText = `You are fully caught up! The Multiverse is safe.`;
+            }
+            updateCalculator();
+        }
+
+        // --- WATCH MODAL LOGIC ---
+        let currentModalMovieId = null;
+        function openModal(id) {
+            const movie = movies.find(m => m.id === id);
+            currentModalMovieId = id;
+            document.getElementById('modal-img').src = movie.img;
+            document.getElementById('modal-title').innerText = movie.title;
+            document.getElementById('modal-year-phase').innerText = `${movie.year} • ${movie.phase}`;
+            document.getElementById('modal-desc').innerText = movie.desc;
+            document.getElementById('modal-credits').innerText = movie.credits;
+            document.getElementById('modal-credits').style.display = 'none'; // reset spoiler
+            
+            // Load notes
+            const notes = localStorage.getItem(`mcu_notes_${id}`) || "";
+            document.getElementById('modal-notes').value = notes;
+
+            document.getElementById('watch-modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('watch-modal').style.display = 'none';
+        }
+
+        function toggleSpoiler() {
+            const content = document.getElementById('modal-credits');
+            content.style.display = content.style.display === 'none' ? 'block' : 'none';
+        }
+
+        // Save notes from modal
+        document.getElementById('modal-save-btn').addEventListener('click', () => {
+            const notes = document.getElementById('modal-notes').value;
+            localStorage.setItem(`mcu_notes_${currentModalMovieId}`, notes);
+            closeModal();
+        });
+
+        // --- EXTRAS CALCULATOR ---
+        const inputDays = document.getElementById('movies-per-day');
+        inputDays.addEventListener('input', updateCalculator);
+        function updateCalculator() {
+            const remaining = movies.length - watchedMovies.length;
+            const perDay = Math.max(1, inputDays.value);
+            const days = Math.ceil(remaining / perDay);
+            document.getElementById('calc-result').innerText = remaining === 0 
+                ? "You're done!" 
+                : `It will take you ${days} day(s) to finish the remaining ${remaining} projects.`;
+        }
+
+        // Initialize
+        renderMovies();
+
+    </script>
+</body>
+</html>
